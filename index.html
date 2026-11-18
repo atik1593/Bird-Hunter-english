@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>BIRD HUNTER – Pemburu Target Cerdas</title>
+<style>
+*{box-sizing:border-box;margin:0}
+html,body{height:100%;overflow:hidden;font-family:"Trebuchet MS","Comic Sans MS",system-ui,sans-serif;background:#7ad3ff;color:#23325a;cursor:none;touch-action:none}
+body{display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+#nav{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:8px 14px;background:linear-gradient(#3b4cca,#2a37a0);color:#fff;font-weight:800;box-shadow:0 3px 0 #1d2778;z-index:3;font-size:clamp(13px,2.2vw,18px)}
+#nav b{background:rgba(255,255,255,.18);border-radius:20px;padding:4px 12px}
+#nav button{font-size:inherit;padding:4px 12px;margin:0;box-shadow:0 3px 0 #b82f34}
+#stage{position:relative;flex:1;min-height:0}
+canvas{display:block;width:100%;height:100%}
+#q{position:absolute;top:8px;left:50%;transform:translateX(-50%);width:min(94%,860px);background:#fff;border:4px solid #ffb703;border-radius:18px;padding:8px 14px;text-align:center;font-size:clamp(16px,2.8vw,28px);font-weight:800;box-shadow:0 5px 0 #e08e00;pointer-events:none}
+#tg{display:flex;justify-content:space-between;font-size:clamp(11px,1.8vw,15px);color:#e08e00;margin-bottom:2px}
+#tb{height:10px;background:#e8e8e8;border-radius:6px;margin-top:6px;overflow:hidden}
+#tb i{display:block;height:100%;width:100%;background:#2ecc71}
+#ov{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(20,40,110,.5);z-index:5}
+.hide{display:none!important}
+.card{background:#fff;border-radius:24px;border:5px solid #ffb703;padding:20px 24px;width:min(92%,520px);text-align:center;box-shadow:0 8px 0 #e08e00;max-height:94%;overflow:auto}
+h1{font-size:clamp(24px,5vw,36px);color:#e63946;line-height:1.1}
+h2{font-size:clamp(20px,4vw,28px);margin-bottom:8px}
+p{margin:6px 0;font-size:clamp(14px,2.4vw,18px)}
+.ex{background:#fff7d6;border-radius:14px;padding:10px;font-weight:700}
+.sm{font-size:13px;color:#667}
+button{font:inherit;font-weight:800;font-size:20px;border:0;border-radius:16px;padding:12px 22px;margin:6px;background:#ff5a5f;color:#fff;box-shadow:0 5px 0 #b82f34;cursor:none}
+button.g{background:#2ecc71;box-shadow:0 5px 0 #1b9a52}
+button.b{background:#3b82f6;box-shadow:0 5px 0 #2456b3}
+input{font:inherit;font-size:20px;font-weight:700;text-align:center;border:4px solid #3b82f6;border-radius:14px;padding:10px;width:90%;margin:10px 0;cursor:none}
+.chip{display:inline-block;background:#eef3ff;border-radius:12px;padding:6px 10px;margin:3px;font-weight:800}
+#ret{position:fixed;left:50%;top:50%;width:58px;height:58px;margin:-29px 0 0 -29px;border:4px solid #ff1744;border-radius:50%;pointer-events:none;z-index:99;box-shadow:0 0 0 3px #fff,0 0 16px #ff1744;transition:transform .08s,background .08s}
+#ret::before,#ret::after{content:"";position:absolute;background:#ff1744;box-shadow:0 0 0 2px #fff}
+#ret::before{left:50%;top:-12px;width:4px;height:70px;margin-left:-2px}
+#ret::after{top:50%;left:-12px;height:4px;width:70px;margin-top:-2px}
+#ret.pin{transform:scale(.7);background:rgba(255,23,68,.35)}
+#cam{position:fixed;right:10px;bottom:10px;width:150px;border-radius:12px;border:3px solid #fff;transform:scaleX(-1);z-index:50;display:none;background:#000}
+</style>
+</head>
+<body>
+<div id="nav">
+  <b>👤 <span id="nn">-</span></b>
+  <b>🏞️ Level <span id="nl">1</span>/5</b>
+  <b>❓ Soal <span id="nq">1</span>/3</b>
+  <b>⭐ Skor <span id="ns">0</span></b>
+  <button class="b" onclick="startCam()">📷 <span id="cs">Kamera</span></button>
+</div>
+<div id="stage">
+  <canvas id="cv"></canvas>
+  <div id="q" class="hide"><div id="tg"><span id="tag"></span><span id="tt"></span></div><div id="qt"></div><div id="tb"><i></i></div></div>
+  <div id="ov"></div>
+</div>
+<div id="ret"></div>
+<video id="cam" muted playsinline></video>
+
+<script>
+const $=s=>document.querySelector(s);
+const cv=$('#cv'),cx=cv.getContext('2d'),ov=$('#ov'),ret=$('#ret'),vid=$('#cam');
+let W=0,H=0;
+function rs(){const d=devicePixelRatio||1,r=$('#stage').getBoundingClientRect();W=r.width;H=r.height;cv.width=W*d;cv.height=H*d;cx.setTransform(d,0,0,d,0,0)}
+addEventListener('resize',rs);
+
+/* ===== BANK SOAL: Family – Kelas 3 (LOTS → MOTS → HOTS) ===== */
+const LV=['Taman Pagi','Hutan Balon','Danau Burung','Bukit Awan','Istana Langit'];
+const TAGS=['⭐ Mudah (LOTS)','⭐⭐ Sedang (MOTS)','⭐⭐⭐ Tantangan (HOTS)'];
+const Q=[
+[{t:'Apa bahasa Inggris dari “Ibu”?',o:['Mother','Father','Sister','Brother'],a:0,e:'Ibu = Mother. Father artinya Ayah. Gampang, kan? 💗'},
+ {t:'Your father’s wife is your ____.',o:['mother','sister','aunt'],a:0,e:'Istri ayahmu adalah ibumu, yaitu mother. Sister adalah saudara perempuan.'},
+ {t:'Dina is Budi’s sister. So Budi is Dina’s ____.',o:['brother','father','uncle'],a:0,e:'Dina perempuan, dan Budi saudara laki-lakinya. Jadi Budi adalah brother Dina.'}],
+[{t:'Apa bahasa Inggris dari “Kakek”?',o:['Grandfather','Grandmother','Uncle'],a:0,e:'Kakek = Grandfather. Nenek = Grandmother. Ingat: grand = yang lebih tua dari orang tua kita.'},
+ {t:'My mother’s mother is my ____.',o:['grandmother','aunt','sister'],a:0,e:'Ibu dari ibumu adalah nenekmu, yaitu grandmother.'},
+ {t:'Rina has one brother and one sister. How many children are in her family?',o:['Two','Three','Four'],a:1,e:'Rina + brother + sister = 3 anak. Jangan lupa menghitung Rina juga! 🧮'}],
+[{t:'Apa bahasa Inggris dari “Bibi / Tante”?',o:['Aunt','Uncle','Cousin','Mother'],a:0,e:'Bibi = Aunt. Paman = Uncle.'},
+ {t:'My uncle’s son is my ____.',o:['cousin','brother','father'],a:0,e:'Anak dari paman atau bibimu adalah sepupu, yaitu cousin.'},
+ {t:'Tono’s mother has a sister. Tono calls her ____.',o:['aunt','grandmother','sister'],a:0,e:'Saudara perempuan ibu adalah bibi, yaitu aunt. Bagi Tono, dia bukan saudara kandung.'}],
+[{t:'This is my father. ____ is tall.',o:['He','She','They','It'],a:0,e:'Ayah adalah laki-laki, jadi pakai He (dia laki-laki).'},
+ {t:'My sister is Ani. ____ is ten years old.',o:['She','He','They','It'],a:0,e:'Ani perempuan, jadi pakai She (dia perempuan).'},
+ {t:'Mr. Budi and Mrs. Sari are my parents. ____ are very kind.',o:['They','He','She','It'],a:0,e:'Ada dua orang (Mr. Budi dan Mrs. Sari), jadi pakai They (mereka).'}],
+[{t:'Siapa itu “parents”?',o:['Father and mother','Brother and sister','Uncle and aunt'],a:0,e:'Parents = orang tua, yaitu ayah dan ibu (father and mother).'},
+ {t:'Andi and I are brothers. ____ mother is Mrs. Lia.',o:['Our','Their','His'],a:0,e:'Andi dan aku = kami (we). Milik kami = our. Jadi “Our mother” = ibu kami.'},
+ {t:'Ben’s father has a sister. Her son is Ben’s ____.',o:['cousin','brother','uncle'],a:0,e:'Saudara perempuan ayah Ben adalah aunt. Anak dari aunt adalah cousin (sepupu).'}]
+];
+
+/* ===== STATE ===== */
+let S={name:'Pemain',lv:0,qi:0,score:0,ok:0,st:'menu',tm:0,T:30,unl:1};
+let bal=[],bird=[],par=[],cld=[],T=0,last=performance.now(),ft=0;
+const R={x:innerWidth/2,y:innerHeight/2};
+const esc=s=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
+
+/* ===== SUARA ===== */
+let AC;
+function ac(){if(!AC)try{AC=new(window.AudioContext||window.webkitAudioContext)()}catch(e){}if(AC&&AC.state==='suspended')AC.resume();return AC}
+function tone(f,d,ty,v,s,f2){const a=ac();if(!a)return;const o=a.createOscillator(),g=a.createGain(),n=a.currentTime+(s||0);o.type=ty||'sine';o.frequency.setValueAtTime(f,n);if(f2)o.frequency.exponentialRampToValueAtTime(f2,n+d);g.gain.setValueAtTime(v||.2,n);g.gain.exponentialRampToValueAtTime(.001,n+d);o.connect(g);g.connect(a.destination);o.start(n);o.stop(n+d)}
+const sPop=()=>{tone(900,.12,'triangle',.35,0,120);tone(1400,.06,'square',.12,0,300)};
+const sOk=()=>{[523,659,784,1047].forEach((f,i)=>tone(f,.18,'sine',.22,.08*i+.1))};
+const sBad=()=>{tone(260,.4,'sawtooth',.14,.05,110)};
+
+/* ===== LAYAR (OVERLAY) ===== */
+function menu(){S.st='menu';$('#q').classList.add('hide');ov.classList.remove('hide');
+ov.innerHTML=`<div class="card"><h1>🐦 BIRD HUNTER</h1><p style="font-weight:800;color:#3b4cca">Pemburu Target Cerdas</p>
+<p class="sm">Bahasa Inggris • Family • Kelas 3</p>
+<p>Kamu adalah penjaga taman burung! Pecahkan balon yang berisi <b>jawaban yang benar</b>.</p>
+<input id="nm" maxlength="14" placeholder="Tulis namamu…" value="${esc(S.name==='Pemain'?'':S.name)}">
+<p class="sm">🖐️ Kamera: arahkan telunjuk, lalu <b>pinch</b> (jempol + telunjuk bertemu) untuk menembak.<br>🖱️ Mouse / 👆 sentuh: klik atau ketuk balon.</p>
+<button class="b" onclick="startCam()">📷 Aktifkan Kamera</button><button class="g" onclick="begin()">▶ Mulai Main</button></div>`}
+function begin(){ac();S.name=($('#nm')&&$('#nm').value.trim()||'Pemain').slice(0,14);go()}
+function go(){ac();S.score=0;S.ok=0;S.lv=0;S.qi=0;S.unl=1;ov.classList.add('hide');showQ()}
+function nav(){$('#nn').textContent=S.name;$('#nl').textContent=S.lv+1;$('#ns').textContent=S.score;$('#nq').textContent=Math.min(S.qi+1,3)}
+function card(h){ov.classList.remove('hide');ov.innerHTML=`<div class="card">${h}</div>`}
+
+/* ===== ALUR SOAL ===== */
+function showQ(){const q=Q[S.lv][S.qi];S.st='play';S.T=S.tm=Math.max(16,32-S.lv*3);
+$('#q').classList.remove('hide');$('#tag').textContent=`Level ${S.lv+1} • ${LV[S.lv]} • ${TAGS[S.qi]}`;$('#qt').textContent=q.t;
+const idx=shuffle(q.o.map((_,i)=>i));bal=idx.map((oi,k)=>mkB(q.o[oi],oi===q.a,k,idx.length));nav()}
+const COLS=['#ff4d6d','#ffb703','#2ecc71','#3b82f6','#b565ff','#ff7b00'];
+function mkB(t,ok,k,n){cx.font='800 22px "Trebuchet MS",sans-serif';const rx=Math.min(120,Math.max(54,cx.measureText(t).width/2+18)),sc=Math.min(1,W/(n*(rx*2+20)+20));
+const sp=40+S.lv*14;return{t,ok,rx,ry:62,sc:Math.max(.55,sc),bx:W*(k+.5)/n,x:0,y:H*(.5+Math.random()*.2)+k*40+120,vy:-sp*(.8+Math.random()*.5),vx:(Math.random()<.5?-1:1)*(18+S.lv*9),f:.8+Math.random(),ph:Math.random()*6,amp:14+Math.random()*16,col:COLS[(Math.random()*COLS.length)|0]}}
+function hit(b,px,py){const dx=(px-b.x)/(b.rx*b.sc),dy=(py-b.y)/(b.ry*b.sc);return dx*dx+dy*dy<=1.15}
+function pick(b){if(S.st!=='play')return;S.st='fb';pop(b);const q=Q[S.lv][S.qi];
+bal.forEach(o=>{if(o!==b){o.out=1;o.vy=-480}});
+if(b.ok){S.score+=100;S.ok++;nav();sOk();flt(b.x,b.y-40,'+100 ⭐','#ffd60a');setTimeout(()=>fb(true,`Hebat, ${esc(S.name)}! 🎉`,'Jawaban benar! +100 poin.'),650)}
+else{sBad();flt(b.x,b.y-40,'Oops!','#ff4d6d');setTimeout(()=>fb(false,`Hampir, ${esc(S.name)}! 🤗`,'Jawabanmu belum tepat.'),650)}}
+function fb(ok,h,p){const q=Q[S.lv][S.qi];
+card(`<h2>${h}</h2><p>${p}</p>${ok?'':`<p>Jawaban yang benar: <b style="color:#2ecc71">${esc(q.o[q.a])}</b></p>`}<p class="ex">💡 ${q.e}</p>${ok?'':'<button class="g" onclick="nx()">Lanjut ▶</button>'}`);
+if(ok)ft=setTimeout(nx,2400)}
+function nx(){clearTimeout(ft);ov.classList.add('hide');S.qi++;bal=[];
+if(S.qi<3)return showQ();
+$('#q').classList.add('hide');S.st='lvl';
+if(S.lv<4){S.unl=S.lv+2;const ch=[0,1,2,3,4].map(i=>`<span class="chip">${i<S.unl?'🔓':'🔒'} ${i+1}</span>`).join('');
+card(`<h2>🎈 Level ${S.lv+1} selesai!</h2><p>Bagus, ${esc(S.name)}! Skor kamu: <b>${S.score}</b></p><p>Level ${S.lv+2} terbuka: <b>${LV[S.lv+1]}</b></p><p>${ch}</p><button class="g" onclick="nl()">Lanjut Level ▶</button>`)}
+else result()}
+function nl(){S.lv++;S.qi=0;ov.classList.add('hide');showQ()}
+function result(){S.st='end';const st=S.score>=1300?3:S.score>=800?2:1;
+const msg=st===3?'Luar biasa! Kamu penjaga taman burung terbaik!':st===2?'Kerja bagus! Sedikit lagi jadi juara!':'Kamu sudah berusaha keras! Ayo coba lagi!';
+card(`<h1>🏆 Selesai!</h1><p style="font-size:34px">${'⭐'.repeat(st)}${'☆'.repeat(3-st)}</p><h2>Selamat, ${esc(S.name)}!</h2><p>${msg}</p><p>Jawaban benar: <b>${S.ok}/15</b></p><p style="font-size:26px;font-weight:800;color:#e63946">Skor: ${S.score} / 1500</p><button class="g" onclick="go()">🔄 Main Lagi</button><button class="b" onclick="menu()">🏠 Menu</button>`)}
+
+/* ===== EFEK ===== */
+function pop(b){sPop();for(let i=0;i<28;i++){const a=Math.random()*6.28,s=120+Math.random()*340;par.push({x:b.x,y:b.y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-100,l:1,c:i%3?b.col:'#fff',r:4+Math.random()*7})}
+par.push({x:b.x,y:b.y,ring:1,rr:10,l:1,c:b.col});bal=bal.filter(o=>o!==b)}
+function flt(x,y,t,c){par.push({x,y,txt:t,l:1.4,c,vy:-70})}
+
+/* ===== INPUT: MOUSE / SENTUH / KAMERA ===== */
+function mv(){ret.style.left=R.x+'px';ret.style.top=R.y+'px'}
+addEventListener('pointermove',e=>{R.x=e.clientX;R.y=e.clientY;mv()});
+cv.addEventListener('pointerdown',e=>{ac();R.x=e.clientX;R.y=e.clientY;mv();sel(e.clientX,e.clientY)});
+function sel(x,y){
+if(!ov.classList.contains('hide')){const e=document.elementFromPoint(x,y),b=e&&e.closest&&e.closest('button');if(b)b.click();return}
+if(S.st!=='play')return;const r=cv.getBoundingClientRect(),px=x-r.left,py=y-r.top;
+for(let i=bal.length-1;i>=0;i--)if(hit(bal[i],px,py)){pick(bal[i]);return}tone(300,.08,'sine',.1)}
+let camOn=false,hands,hist=[],pin=false,busy=false;
+function loadJS(u){return new Promise((ok,no)=>{const s=document.createElement('script');s.src=u;s.crossOrigin='anonymous';s.onload=ok;s.onerror=()=>no(new Error('gagal memuat '+u));document.head.appendChild(s)})}
+async function startCam(){ac();if(camOn)return;const cs=$('#cs');cs.textContent='Memuat…';
+try{
+if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('Kamera tidak didukung');
+if(!window.Hands)await loadJS('https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js');
+const stream=await navigator.mediaDevices.getUserMedia({video:{width:640,height:480,facingMode:'user'},audio:false});
+vid.srcObject=stream;await vid.play();
+hands=new Hands({locateFile:f=>'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/'+f});
+hands.setOptions({maxNumHands:1,modelComplexity:0,minDetectionConfidence:.6,minTrackingConfidence:.5});
+hands.onResults(onHand);
+await Promise.race([hands.initialize(),new Promise((_,no)=>setTimeout(()=>no(new Error('timeout')),30000))]);
+camOn=true;vid.style.display='block';cs.textContent='Kamera aktif';camLoop()}
+catch(e){console.warn(e);if(vid.srcObject){vid.srcObject.getTracks().forEach(t=>t.stop());vid.srcObject=null}cs.textContent='Kamera gagal – pakai mouse/sentuh'}}
+async function camLoop(){if(!camOn)return;if(vid.readyState>=2&&!busy){busy=true;try{await hands.send({image:vid})}catch(e){}busy=false}requestAnimationFrame(camLoop)}
+function onHand(r){const L=r.multiHandLandmarks&&r.multiHandLandmarks[0],cs=$('#cs');
+if(!L){cs.textContent='🖐️ Tunjukkan tangan';if(pin){pin=false;ret.classList.remove('pin')}return}
+cs.textContent='✋ Tangan terdeteksi';
+if(!pin){const t=L[8],x=(1-t.x)*innerWidth,y=t.y*innerHeight;R.x+=(x-R.x)*.55;R.y+=(y-R.y)*.55;mv();hist.push({x:R.x,y:R.y});if(hist.length>6)hist.shift()}
+const d=Math.hypot(L[4].x-L[8].x,L[4].y-L[8].y)/Math.max(.001,Math.hypot(L[0].x-L[9].x,L[0].y-L[9].y));
+if(!pin&&d<.28){pin=true;ret.classList.add('pin');const h=hist[0]||R;sel(h.x,h.y)}
+else if(pin&&d>.42){pin=false;ret.classList.remove('pin')}}
+
+/* ===== GAMBAR ===== */
+function initScene(){const bc=['#ff6b6b','#ffd93d','#6bcb77','#4d96ff','#c77dff','#ff9f1c'];
+bird=bc.map((c,i)=>({x:Math.random()*W,y:140+Math.random()*(H*.35),s:.7+Math.random()*.5,c,ph:Math.random()*6,d:i%2?1:-1,v:30+Math.random()*50}));
+cld=[0,1,2,3,4].map(i=>({x:Math.random()*W,y:60+Math.random()*150,s:.7+Math.random()*.8,v:8+Math.random()*14}))}
+function drawBird(b){const y=b.y+Math.sin(T*2+b.ph)*10;cx.save();cx.translate(b.x,y);if(b.d<0)cx.scale(-1,1);cx.scale(b.s,b.s);
+cx.fillStyle=b.c;cx.beginPath();cx.ellipse(0,0,26,20,0,0,7);cx.fill();
+cx.beginPath();cx.moveTo(-22,0);cx.lineTo(-42,-10);cx.lineTo(-40,8);cx.fill();
+const f=Math.sin(T*10+b.ph);cx.fillStyle='rgba(0,0,0,.18)';cx.beginPath();cx.ellipse(-4,-6,16,7+Math.abs(f)*9,-.4*f-.3,0,7);cx.fill();
+cx.fillStyle='#fff';cx.beginPath();cx.arc(12,-6,7,0,7);cx.fill();cx.fillStyle='#222';cx.beginPath();cx.arc(14,-6,3.5,0,7);cx.fill();
+cx.fillStyle='#ff9f1c';cx.beginPath();cx.moveTo(24,-3);cx.lineTo(38,3);cx.lineTo(24,8);cx.fill();
+cx.fillStyle='rgba(255,120,160,.6)';cx.beginPath();cx.arc(8,5,4,0,7);cx.fill();cx.restore()}
+function drawB(b,hot){cx.save();cx.translate(b.x,b.y);const s=b.sc*(hot?1.07:1);cx.scale(s,s);
+cx.strokeStyle='#fff';cx.lineWidth=2;cx.beginPath();cx.moveTo(0,b.ry+8);cx.quadraticCurveTo(10,b.ry+30,-6,b.ry+56);cx.stroke();
+cx.fillStyle=b.col;cx.beginPath();cx.ellipse(0,0,b.rx,b.ry,0,0,7);cx.fill();
+cx.beginPath();cx.moveTo(0,b.ry-2);cx.lineTo(-7,b.ry+10);cx.lineTo(7,b.ry+10);cx.fill();
+cx.lineWidth=hot?6:3;cx.strokeStyle=hot?'#fff':'rgba(0,0,0,.2)';cx.beginPath();cx.ellipse(0,0,b.rx,b.ry,0,0,7);cx.stroke();
+cx.fillStyle='rgba(255,255,255,.45)';cx.beginPath();cx.ellipse(-b.rx*.5,-b.ry*.5,b.rx*.14,b.ry*.22,-.6,0,7);cx.fill();
+cx.font='800 22px "Trebuchet MS",sans-serif';cx.textAlign='center';cx.textBaseline='middle';cx.lineJoin='round';cx.lineWidth=5;cx.strokeStyle='rgba(0,0,0,.45)';cx.strokeText(b.t,0,0);cx.fillStyle='#fff';cx.fillText(b.t,0,0);cx.restore()}
+function drawBG(){const g=cx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#4cb8ff');g.addColorStop(1,'#c9f0ff');cx.fillStyle=g;cx.fillRect(0,0,W,H);
+const sg=cx.createRadialGradient(W-90,90,10,W-90,90,90);sg.addColorStop(0,'#fff6a8');sg.addColorStop(1,'rgba(255,240,120,0)');cx.fillStyle=sg;cx.fillRect(W-200,0,200,200);
+cx.fillStyle='#ffe44d';cx.beginPath();cx.arc(W-90,90,36,0,7);cx.fill();
+cx.fillStyle='rgba(255,255,255,.92)';cld.forEach(c=>{cx.save();cx.translate(c.x,c.y);cx.scale(c.s,c.s);[[0,0,28],[30,-10,34],[64,0,26],[32,8,30]].forEach(a=>{cx.beginPath();cx.arc(a[0],a[1],a[2],0,7);cx.fill()});cx.restore()});
+const gy=H-44;cx.fillStyle='#7bd36b';cx.beginPath();cx.ellipse(W*.25,gy+30,W*.5,70,0,0,7);cx.fill();cx.beginPath();cx.ellipse(W*.8,gy+36,W*.45,60,0,0,7);cx.fill();
+cx.fillStyle='#4cb84a';cx.fillRect(0,gy+10,W,H);
+for(let i=0;i<W/110+1;i++){const x=i*110+40,h=60+(i%3)*22;cx.fillStyle='#8a5a2b';cx.fillRect(x-7,gy-h+20,14,h);cx.fillStyle=i%2?'#2f9e44':'#37b24d';
+[[0,-h+4,34],[-22,-h+24,26],[22,-h+24,26]].forEach(a=>{cx.beginPath();cx.arc(x+a[0],gy+a[1],a[2],0,7);cx.fill()})}
+const fl=['#ff6b9d','#ffd93d','#fff'];for(let i=0;i<W/40;i++){cx.fillStyle=fl[i%3];cx.beginPath();cx.arc(i*40+((i*13)%25),gy+22+(i%3)*8,4,0,7);cx.fill()}}
+function draw(){drawBG();bird.forEach(drawBird);
+const r=cv.getBoundingClientRect(),px=R.x-r.left,py=R.y-r.top;
+bal.forEach(b=>drawB(b,S.st==='play'&&hit(b,px,py)));
+par.forEach(p=>{cx.globalAlpha=Math.max(0,Math.min(1,p.l));
+if(p.ring){cx.strokeStyle=p.c;cx.lineWidth=6;cx.beginPath();cx.arc(p.x,p.y,p.rr,0,7);cx.stroke()}
+else if(p.txt){cx.font='800 34px "Trebuchet MS",sans-serif';cx.textAlign='center';cx.lineWidth=6;cx.strokeStyle='#23325a';cx.strokeText(p.txt,p.x,p.y);cx.fillStyle=p.c;cx.fillText(p.txt,p.x,p.y)}
+else{cx.fillStyle=p.c;cx.beginPath();cx.arc(p.x,p.y,p.r,0,7);cx.fill()}cx.globalAlpha=1})}
+function upd(dt){cld.forEach(c=>{c.x+=c.v*dt;if(c.x>W+120)c.x=-140});bird.forEach(b=>{b.x+=b.d*b.v*dt;if(b.d>0&&b.x>W+60)b.x=-60;if(b.d<0&&b.x<-60)b.x=W+60});
+bal.forEach(b=>{b.y+=b.vy*dt;if(!b.out){b.bx+=b.vx*dt;if(b.bx<b.rx*b.sc||b.bx>W-b.rx*b.sc)b.vx*=-1;b.x=b.bx+Math.sin(T*b.f+b.ph)*b.amp;if(b.y<-b.ry*2)b.y=H+b.ry*2}else b.x+=Math.sin(T*8+b.ph)*2});
+bal=bal.filter(b=>!(b.out&&b.y<-160));
+par.forEach(p=>{p.l-=dt*(p.txt?.8:1.6);if(p.ring){p.rr+=dt*300}else if(p.txt){p.y+=p.vy*dt}else{p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=700*dt}});par=par.filter(p=>p.l>0);
+if(S.st==='play'){S.tm-=dt;const f=Math.max(0,S.tm/S.T);const bar=$('#tb i');bar.style.width=f*100+'%';bar.style.background=f>.5?'#2ecc71':f>.25?'#ffb703':'#ff4d6d';$('#tt').textContent='⏱ '+Math.max(0,Math.ceil(S.tm))+' detik';
+if(S.tm<=0){S.st='fb';sBad();bal.forEach(o=>{o.out=1;o.vy=-300});fb(false,`Waktu habis, ${esc(S.name)}! ⏰`,'Tidak apa-apa, ayo belajar bersama.')}}}
+function loop(n){const dt=Math.min(.05,(n-last)/1000);last=n;T+=dt;upd(dt);draw();requestAnimationFrame(loop)}
+
+rs();initScene();menu();nav();$('#nn').textContent='-';requestAnimationFrame(loop);
+</script>
+</body>
+</html>
